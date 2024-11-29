@@ -5,6 +5,9 @@ work_dir := `pwd`
 default:
   just --list
 
+clean:
+  rm -rf build/ eg1.egg-info/
+
 alembic-init:
   alembic -c api/alembic.ini revision --autogenerate -m "Table Initialization"
 

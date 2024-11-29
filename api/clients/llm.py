@@ -7,7 +7,7 @@ import requests
 
 from api.utils import log_and_raise_for_status, retry
 
-from .schemas.openai import ChatCompletionResponse
+from .schemas.openai_rag import RagChatCompletionResponse
 
 
 @dataclass
@@ -84,7 +84,7 @@ class LlmClient:
         stream: bool = False,
         path: str = "/chat/completions",
         **sampling_params,
-    ) -> ChatCompletionResponse | Generator:
+    ) -> RagChatCompletionResponse | Generator:
         if isinstance(messages, str):
             messages = [{"role": "user", "content": messages}]
         elif isinstance(messages, list):
@@ -108,7 +108,7 @@ class LlmClient:
             return self._get_streaming_response(response)
 
         r = response.json()
-        return ChatCompletionResponse(**r)
+        return RagChatCompletionResponse(**r)
 
     @retry(tries=3, delay=5)
     def create_embeddings(

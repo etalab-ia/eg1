@@ -48,6 +48,14 @@ def generate_answer(message: dict):
                     model=model.name, messages=messages, **sampling_params_plus
                 )
             answer = result.choices[0].message.content
+            # Try to set the RAG metadata
+            # @DEBUG: Is subject to change to align with albert-api...
+            retrieval_context = None
+            if hasattr(result, "rag_context"):
+                refs = result.rag_context.references
+                # @DEBUG: references are hash/is of chunks here.
+                #         To get the content of the hash we need to query the api franceservices.../api/v2/indexes
+                #         which need authentication. But authentication is painfull atm in this api. I will eventually make a PR to get the chunk content instead of the hashes...
 
             # Upsert answer
             crud.upsert_answer(
@@ -59,6 +67,7 @@ def generate_answer(message: dict):
                     execution_time=timer.execution_time,
                     nb_tokens_prompt=result.usage.prompt_tokens,
                     nb_tokens_completion=result.usage.completion_tokens,
+                    retrieval_context=retrieval_context,
                 ),
             )
 
@@ -110,10 +119,11 @@ def generate_observation(message: dict):
         observation = None
         error_msg = None
         metadata = {}
-        if answer:
+        if answer:  # answer.answer == msg.output
             metadata["generation_time"] = answer.execution_time
             metadata["nb_tokens_prompt"] = answer.nb_tokens_prompt
             metadata["nb_tokens_completion"] = answer.nb_tokens_completion
+            metadata["retrieval_context"] = answer.retrieval_context
         try:
             # Generate observation/metric
             # --
@@ -133,7 +143,13 @@ def generate_observation(message: dict):
                     continue
                 dataset = result.experiment.dataset
                 df = pd.read_json(StringIO(dataset.df))
-                metric_params[require] = df.iloc[msg.line_id][require]
+                try:
+                    metric_params[require] = df.iloc[msg.line_id][require]
+                except KeyError:
+                    # If the required param is not in the dataset,
+                    # try to get it from the metadata context.
+                    metric_params[require] = metadata.get(require)
+
                 if not metric_params[require]:
                     raise ValueError(
                         f"The metric {msg.metric_name} require a non null {require} value."

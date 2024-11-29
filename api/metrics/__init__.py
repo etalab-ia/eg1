@@ -11,6 +11,7 @@ from api.utils import import_classes
 # FIX deepeval: OSError: [Errno 24] Too many open files: '.deepeval'
 KEY_FILE_HANDLER.fetch_data = lambda x: None
 
+
 class MetricType(str, Enum):
     # @TODO: ill defined at this point...
     llm = "llm"  # query:str, output:str
@@ -78,7 +79,7 @@ class MetricRegistry:
                     if k in reverse_require_map
                 }
             )
-            metric.measure(test_case, _show_indicator=False)
+            metric.measure(test_case, model="gpt-4o", _show_indicator=False)
             if hasattr(metric, "reason"):
                 return metric.score, metric.reason
             return metric.score
@@ -120,15 +121,37 @@ for filename in os.listdir(metrics_directory):
 # Register some DeepEval metrics
 # --
 package_name = "deepeval.metrics"
-classes = ["AnswerRelevancyMetric", "FaithfulnessMetric", "BiasMetric", "ToxicityMetric"]
+classes = [
+    "AnswerRelevancyMetric",
+    "FaithfulnessMetric",
+    "BiasMetric",
+    "ToxicityMetric",
+    "HallucinationMetric",
+    # Rag metric (required retrieval_context)
+    "ContextualPrecisionMetric",
+    "ContextualRecallMetric",
+    "ContextualRelevancyMetric",
+    "RagasMetric",
+]
 more = ["required_params"]
 imported_objs = import_classes(package_name, classes, more=more)
 for class_name, obj in zip(classes, imported_objs):
     if not obj:
         continue
+
+    name = inflection.underscore(class_name.replace("Metric", ""))
+    description = "see https://docs.confident-ai.com/docs/metrics-introduction"
+    required_params = obj.get("required_params")
+
+    # @DEBUG: Deepeval:RagasMetric does not have the required_params attribute set.
+    if class_name == "RagasMetric":
+        required_params = Enum(
+            "_", {name: name for name in ["input", "expected_output", "retrieval_context"]}
+        )
+
     metric_registry.register_deepeval(
         metric_class=obj["obj"],
-        name=inflection.underscore(class_name.replace("Metric", "")),
-        description="see https://docs.confident-ai.com/docs/metrics-introduction",
-        required_params=obj.get("required_params"),
+        name=name,
+        description=description,
+        required_params=required_params,
     )

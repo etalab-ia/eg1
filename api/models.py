@@ -134,6 +134,7 @@ class Answer(Base):
     execution_time = Column(Integer)
     nb_tokens_prompt = Column(Integer)
     nb_tokens_completion = Column(Integer)
+    retrieval_context = Column(JSON) # list[str]
 
     # One
     experiment_id = Column(Integer, ForeignKey("experiments.id"))
