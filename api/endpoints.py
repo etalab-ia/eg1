@@ -156,6 +156,24 @@ def read_experiment(
     return schemas.Experiment.from_orm(experiment)
 
 
+@router.get("/experiments", response_model=list[schemas.ExperimentWithResults])
+def read_experiments(db: Session = Depends(get_db)):
+    experiments = crud.get_experiments(db)
+    
+    if not experiments:
+        raise HTTPException(status_code=404, detail="No experiments found")
+
+    return experiments
+
+
+@router.get("/experiments/{experiment_id}/details", response_model=schemas.ExperimentDetails)
+def get_experiment_details(experiment_id: int, db: Session = Depends(get_db)):
+    details = crud.get_experiment_details(db, experiment_id)
+    if not details:
+        raise HTTPException(status_code=404, detail="Experiment not found")
+    return details
+    
+
 #
 # Experiment Sets
 #

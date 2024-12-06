@@ -138,7 +138,7 @@ class Model(ModelBase):
 
 class Answer(EgBaseModel):
     id: int
-    created_at: datetime
+    #created_at: datetime
     answer: str | None
     num_line: int
     error_msg: str | None
@@ -305,6 +305,14 @@ ExperimentUpdate = create_model(
 
 class ExperimentPatch(ExperimentUpdate):
     rerun_answers: bool = False
+
+
+class ExperimentDetails(BaseModel):
+    experiment_name: str
+    dataset_name: str
+    data: list[dict]
+
+    model_config = ConfigDict(from_attributes=True)
 
 
 #
