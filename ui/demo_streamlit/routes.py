@@ -15,6 +15,20 @@ ROUTES = [
         "icon": ":material/trophy:",
     },
     {
+        "id": "experiments",
+        "path": "views/experiments.py",
+        "title": "Experiment",
+        "description": "Navigate the experiments not attached to an experiment group",
+        "icon": ":material/dashboard:",
+    },
+    {
+        "id": "experiments_set",
+        "path": "views/experiments_set.py",
+        "title": "Experiments Set",
+        "description": "Navigate the experiments collections groups",
+        "icon": ":material/experiment:",
+    },
+    {
         "id": "datasets",
         "path": "views/datasets.py",
         "title": "Datasets",
@@ -27,13 +41,6 @@ ROUTES = [
         "title": "Metrics",
         "description": "A list of available metrics",
         "icon": ":material/visibility:",
-    },
-    {
-        "id": "experiments",
-        "path": "views/experiments.py",
-        "title": "Experiments",
-        "description": "Navigate the experiments collections",
-        "icon": ":material/experiment:",
     },
 ]
 
