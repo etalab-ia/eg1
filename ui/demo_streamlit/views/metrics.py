@@ -1,10 +1,11 @@
 import streamlit as st
 from utils import fetch
+from itertools import groupby
+from operator import itemgetter
 
 from streamlit import session_state
 
 session_state.layout = "wide"
-
 
 def main():
     st.title("Metrics")
@@ -15,6 +16,10 @@ def main():
 
     main_content, right_menu = st.columns([8, 2])
 
+    # Group metrics by type
+    sorted_metrics = sorted(metrics, key=itemgetter('type'))
+    grouped_metrics = {k: list(v) for k, v in groupby(sorted_metrics, key=itemgetter('type'))}
+
     # Main content
     with main_content:
         with st.container():
@@ -23,34 +28,29 @@ def main():
                      The metric returns a score (float) and may optionally include an observation, which is the intermediate result (such as a judge string output).
                     """)
 
-        for metric in metrics:
-            with st.container():
-                # Add an anchor for navigation
-                st.markdown(
-                    f"<div id='{metric['name'].lower().replace(' ', '-')}'></div>",
-                    unsafe_allow_html=True,
-                )
-                st.subheader(metric["name"])
-                st.write(
-                    f"Required fields: {', '.join(map(lambda x: '**' + x + '**', metric['require']))}"
-                )
-                st.write(metric["description"])
-                st.divider()
+        for metric_type, metrics_group in grouped_metrics.items():
+            # Add an anchor for each metric type
+            st.markdown(f"<div id='{metric_type.lower()}'></div>", unsafe_allow_html=True)
+            st.header(f"{metric_type.capitalize()} Metrics")
+            for metric in metrics_group:
+                with st.container():
+                    st.markdown(f"<div id='{metric['name'].lower().replace(' ', '-')}'></div>", unsafe_allow_html=True)
+                    st.subheader(metric["name"])
+                    st.write(f"Required fields: {', '.join(map(lambda x: '**' + x + '**', metric['require']))}")
+                    st.write(metric["description"])
+                    st.divider()
 
     # Navigation menu
     with right_menu:
         st.markdown("###### Quick Navigation")
-        for metric in metrics:
-            metric_id = metric["name"].lower().replace(" ", "-")
-            st.markdown(
-                f"""
-                <a href="#{metric_id}" style="color:grey;"
+        for metric_type in grouped_metrics.keys():
+            metric_id = metric_type.lower()
+
+            # Create a button for each metric type
+            st.markdown(f"""
+                <a href="#{metric_type}" style="color:grey;"
                    onclick="document.getElementById('{metric_id}').scrollIntoView({{behavior: 'smooth'}});">
-                    {metric['name']}
+                    {metric_type} metrics
                 </a><br>
-            """,
-                unsafe_allow_html=True,
-            )
-
-
+            """, unsafe_allow_html=True)
 main()

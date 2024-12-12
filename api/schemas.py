@@ -63,7 +63,7 @@ class MetricStatus(str, Enum):
 
 class DatasetBase(EgBaseModel):
     name: str
-
+    readme: str 
     model_config = ConfigDict(from_attributes=True)
 
 
@@ -91,6 +91,7 @@ class DatasetCreate(DatasetBase):
             "has_output": has_output,
             "has_output_true": has_output_true,
             "size": len(df),
+            "readme": self.readme,
             **obj,
         }
 
@@ -101,10 +102,11 @@ class Dataset(DatasetBase):
     has_output: bool
     has_output_true: bool
     size: int
+    
 
 
-class DatasetFull(Dataset):
-    df: str  # from_json
+class DatasetFull(DatasetBase):
+    df: str # from_json
 
 
 #
@@ -284,8 +286,11 @@ class ExperimentWithAnswers(Experiment):
 
 
 class ExperimentFull(Experiment):
-    answers: list[Answer] | None
-    results: list[Result] | None
+    answers: list[Answer] | None = None
+    results: list[Result] | None = None
+
+class ExperimentFullWithDataset(ExperimentFull):
+    dataset: DatasetFull | None = None
 
 
 # For the special `metrics` input
@@ -307,6 +312,7 @@ class ExperimentPatch(ExperimentUpdate):
     rerun_answers: bool = False
 
 
+
 #
 # Experiment Set
 #
@@ -320,7 +326,7 @@ class GridCV(BaseModel):
 
 class ExperimentSetBase(EgBaseModel):
     name: str
-    readme: str | None = None
+    readme: str
 
     model_config = ConfigDict(from_attributes=True)
 

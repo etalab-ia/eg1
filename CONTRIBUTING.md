@@ -77,7 +77,6 @@ To run the streamlit frontend, run :
     streamlit run ui/demo_streamlit/app.py --server.runOnSave true
 
 
-
 ## Jupyter Tutorial
 
 The `notebook/` directory contains examples of API usage.

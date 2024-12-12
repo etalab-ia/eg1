@@ -26,6 +26,7 @@ def main():
                 # Add an anchor for navigation
                 st.markdown(f"<div id='{dataset['name'].lower().replace(' ', '-')}'></div>", unsafe_allow_html=True)
                 st.subheader(dataset['name'])
+                st.write(f"readme: {dataset['readme']}")
                 st.write(f"size: {dataset['size']}")
                 st.divider()
 

@@ -137,16 +137,22 @@ def delete_experiment(id: int, db: Session = Depends(get_db)):
 
 @router.get(
     "/experiment/{id}",
-    response_model=schemas.Experiment | schemas.ExperimentWithResults | schemas.ExperimentFull,
+    response_model=schemas.Experiment | schemas.ExperimentWithResults | schemas.ExperimentWithAnswers | schemas.ExperimentFull | schemas.ExperimentFullWithDataset,
 )
 def read_experiment(
-    id: int, with_answers: bool = False, with_results: bool = False, db: Session = Depends(get_db)
+    id: int,
+    with_results: bool = False,
+    with_answers: bool = False,
+    with_dataset: bool = False,
+    db: Session = Depends(get_db)
 ):
     experiment = crud.get_experiment(db, id)
     if experiment is None:
         raise HTTPException(status_code=404, detail="Experiment not found")
 
-    if with_answers and with_results:
+    if with_dataset:
+        return schemas.ExperimentFullWithDataset.from_orm(experiment)
+    elif with_answers and with_results:
         return schemas.ExperimentFull.from_orm(experiment)
     elif with_results:
         return schemas.ExperimentWithResults.from_orm(experiment)
@@ -164,8 +170,8 @@ def read_experiments(set_id: int | None = None, limit: int = 100, db: Session = 
         raise HTTPException(status_code=404, detail="No experiments found")
 
     return experiments
-
-
+  
+  
 #
 # Experiment Sets
 #

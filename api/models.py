@@ -78,6 +78,8 @@ class Dataset(Base):
     has_output = Column(Boolean)
     has_output_true = Column(Boolean)
     size = Column(Integer)
+    readme = Column(Text)
+
 
 
 class Model(Base):
