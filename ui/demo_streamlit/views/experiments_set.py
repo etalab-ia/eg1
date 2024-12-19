@@ -1,3 +1,4 @@
+import numpy as np
 import pandas as pd
 from datetime import datetime
 import streamlit as st
@@ -6,6 +7,9 @@ from io import StringIO
 
 
 def get_experiment_data(exp_id):
+    """
+    for each exp_id, returns query, answer true, answer llm and metrics
+    """
     response = fetch("get", f"/experiment/{exp_id}", {"with_dataset": "true"})
     if not response:
         return None
@@ -29,8 +33,11 @@ def get_experiment_data(exp_id):
 
 
 def display_experiment_set_overview(expset, experiments_df):
-    st.write(f"## Overview of experiment set: {expset['name']}")
-    st.write(f"experiment_set id: {expset['id']}")
+    """
+    returns a dataframe with the list of Experiments and the associated status
+    """
+    st.write(f"## Overview of experiment set:")
+    st.write(f"### experiment_set n° {expset['id']} ~~ {expset['name']}  ~~")
 
     row_height = 35
     header_height = 35
@@ -46,17 +53,10 @@ def display_experiment_set_overview(expset, experiments_df):
     )
 
 
-def display_experiment_set_result(expset, experiments_df):
-    st.write("## Results of the Experiment Set")
-
-    total_experiments = len(experiments_df)
-    total_success = experiments_df["Num success"].sum()
-
-    st.write(f"Total Experiments: {total_experiments}")
-    st.write(f"Total Successful Experiments: {total_success}")
-
-
 def display_experiment_sets(experiment_sets):
+    """
+    returns the list of experiments set, with their status/info
+    """
     cols = st.columns(3)
     for idx, exp_set in enumerate(experiment_sets):
         total_tries = sum(exp["num_try"] for exp in exp_set["experiments"])
@@ -96,7 +96,7 @@ def display_experiment_sets(experiment_sets):
                         for exp in exp_set["experiments"]:
                             if exp["num_try"] == exp["num_success"]:
                                 continue
-                            st.write(f"{exp['id']} {exp['name']}")
+                            st.write(f"n° {exp['id']} - {exp['name']}")
 
 
 def display_experiment_details(experimentset, experiments_df):
@@ -105,12 +105,130 @@ def display_experiment_details(experimentset, experiments_df):
     if selected_exp_id:
         df_with_results, dataset_name, model_name = get_experiment_data(selected_exp_id)
         if df_with_results is not None:
-            st.write(f"### Detailed results of the experiment id={selected_exp_id} ")
-            st.write(f"**Dataset:** {dataset_name}")
-            st.write(f"**Model:** {model_name}")
+            cols = st.columns(4)
+            with cols[0]:
+                st.write(f"**experiment_id** n° {selected_exp_id}")
+            with cols[1]:
+                st.write(f"**Dataset:** {dataset_name}")
+            with cols[2]:
+                st.write(f"**Model:** {model_name}")
             st.dataframe(df_with_results)
         else:
             st.error("Failed to fetch experiment data")
+
+
+def process_experiment_results(experimentset):
+    """
+    process experiment results dynamically across different experiment types.
+    """
+    rows = []
+    metrics = set()
+    experiment_names = [exp["name"] for exp in experimentset.get("experiments", [])]
+    
+    is_repeat_mode = _check_repeat_mode(experiment_names)
+
+    for exp in experimentset.get("experiments", []):
+        if exp["experiment_status"] != "finished":
+            st.warning(f"Warning: experiment {exp['id']} is not finished yet...")
+            continue
+
+        response = fetch("get", f"/experiment/{exp['id']}?with_results=true")
+        if not response:
+            continue
+
+        model_name = response["model"]["name"]
+        extra_params = response["model"].get("extra_params", {})
+        variant = _extract_experiment_variant(extra_params)
+        row = {"model": f"{model_name}_{variant}" if variant else model_name}
+
+        for metric_results in response.get("results", []):
+            metric = metric_results["metric_name"]
+            metrics.add(metric)
+            scores = [x["score"] for x in metric_results["observation_table"] if pd.notna(x.get("score"))]
+            if scores:
+                row[f"{metric}_mean"] = np.mean(scores)
+                row[f"{metric}_std"] = np.std(scores)
+                row[f"{metric}_support"] = len(scores)
+
+        rows.append(row)
+
+    if not rows:
+        st.error("No valid experiment results found")
+        return None
+
+    df = pd.DataFrame(rows)
+    
+    if is_repeat_mode:
+        df = df.groupby("model").agg({col: ['mean', 'std'] for col in df.columns if col.endswith('_mean')})
+        df.columns = [f"{col[0]}_{col[1]}" for col in df.columns]
+    else:
+        default_sort_metric = _find_default_sort_metric(metrics)
+        if default_sort_metric and f"{default_sort_metric}_mean" in df.columns:
+            df = df.sort_values(by=f"{default_sort_metric}_mean", ascending=False)
+
+    return df
+
+def _check_repeat_mode(experiment_names):
+    """
+    check whether the experiment is related to a repetition
+    """
+    if len(experiment_names) <= 1:
+        return False
+    
+    base_names = [name.rsplit('_', 1)[0] for name in experiment_names]
+    
+    if len(set(base_names)) == 1:
+        suffixes = [name.split('_')[-1] for name in experiment_names]
+        return all(suffix.isdigit() for suffix in suffixes)
+    
+    return False
+
+def _extract_experiment_variant(extra_params: dict):
+    """
+    extract a meaningful variant identifier from extra parameters.
+    """
+    if not extra_params:
+        return ""
+    
+    if "rag" in extra_params:
+        if "limit" in extra_params["rag"]:
+            return f"limit_{extra_params['rag']['limit']}"
+    
+    return str(list(extra_params.keys())[0]) if extra_params else ""
+
+def _find_default_sort_metric(metrics):
+    """
+    find a sensible default metric for sorting results.
+    """
+    preferred_metrics = ['judge_exactness', 'contextual_relevancy']
+    for metric in preferred_metrics:
+        if metric in metrics:
+            return f"{metric}_mean"
+    
+    return list(metrics)[0] + "_mean" if metrics else None
+
+def display_experiment_results(experimentset):
+    results_df = process_experiment_results(experimentset)
+    
+    if results_df is not None:
+        st.write("### Experiment Results")
+        st.dataframe(results_df)
+
+def display_experiment_set_result(experimentset, experiments_df):
+    st.write("## Results of the Experiment Set")
+
+    total_experiments = len(experiments_df)
+    all_successful = (experiments_df["Num try"] == experiments_df["Num success"]).all()
+
+    if all_successful:
+        display_experiment_results(experimentset)
+    else:
+        st.error("Detailed results cannot be displayed as not all experiments are successful")
+        cols = st.columns(6)
+        with cols[0]:
+            st.write(f"Total Experiments: {total_experiments}")
+        with cols[1]:
+            st.write(f"Failure Experiments: {total_experiments - (experiments_df['Num success'] > 0).sum()}")
 
 
 def main():
@@ -156,7 +274,7 @@ def main():
             with tab3:
                 st.warning(message)
 
-        df = experiments_df  # alias
+        df = experiments_df  
         if df["Num success"].sum() != df["Num try"].sum() and (df["Status"] == "finished").all():
             show_warning_in_tabs("Warning: some experiments are failed.")
         if not (df["Status"] == "finished").all():
