@@ -329,3 +329,17 @@ def retry_runs(id: int, db: Session = Depends(get_db)):
 
     dispatch_retries(db, rr)
     return rr
+
+
+#
+# LeaderBoard
+#
+
+
+@router.get("/leaderboard", response_model=schemas.Leaderboard, tags=["leaderboard"])
+def read_leaderboard(
+    metric_name: str = "judge_notator",
+    limit: int = 100,
+    db: Session = Depends(get_db)
+):
+    return crud.get_leaderboard(db, metric_name=metric_name, limit=limit)
