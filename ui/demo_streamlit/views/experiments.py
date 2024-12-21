@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 from utils import fetch
+from io import StringIO
 
 
 def fetch_all_experiments():
@@ -109,11 +110,41 @@ def display_experiment_results(exp_id):
         st.warning("Warning: some metrics are failed.")
 
     results_df = process_experiment_results(experiment)
-
+    df_with_results, dataset_name, model_name = get_experiment_data(exp_id)
+            
+    
     if not results_df.empty:
         st.dataframe(results_df)
+        st.dataframe(df_with_results)
+
     else:
         st.info("No results available for this experiment.")
+
+
+def get_experiment_data(exp_id):
+    """
+    for each exp_id, returns query, answer true, answer llm and metrics
+    """
+    response = fetch("get", f"/experiment/{exp_id}", {"with_dataset": "true"})
+    if not response:
+        return None
+
+    df = pd.read_json(StringIO(response["dataset"]["df"]))
+
+    if "answers" in response:
+        answers = {answer["num_line"]: answer["answer"] for answer in response["answers"]}
+        df["answer"] = df.index.map(answers)
+
+    if "results" in response:
+        for result in response["results"]:
+            metric_name = result["metric_name"]
+            observations = {obs["num_line"]: obs["score"] for obs in result["observation_table"]}
+            df[f"result_{metric_name}"] = df.index.map(observations)
+
+    dataset_name = response.get("dataset", {}).get("name", "Unknown Dataset")
+    model_name = response.get("model", {}).get("name", "Unknown Model")
+
+    return df, dataset_name, model_name
 
 
 def main():
