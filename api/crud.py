@@ -304,3 +304,48 @@ def upsert_observation(
     db.commit()
     db.refresh(db_observation)
     return db_observation
+
+
+
+
+#
+# LeaderBoard
+#
+
+
+def get_leaderboard(db: Session, metric_name: str = "judge_notator", limit: int = 100):
+    entries = []
+    experiments = db.query(models.Experiment).all()
+    
+    for exp in experiments:
+        main_metric_score = None
+        other_metrics = {}
+        
+        for result in exp.results:
+            if result.metric_name == metric_name:
+                main_metric_score = result.observation_table[0].score if result.observation_table else None
+            else:
+                other_metrics[result.metric_name] = result.observation_table[0].score if result.observation_table else None
+        
+        if main_metric_score is not None:
+            sampling_params = {k: str(v) for k, v in (exp.model.sampling_params or {}).items()}
+            extra_params = {k: str(v) for k, v in (exp.model.extra_params or {}).items()}
+
+            entry = schemas.LeaderboardEntry(
+                experiment_id=exp.id,
+                model_name=exp.model.name if exp.model else "N/A",
+                dataset_name=exp.dataset.name,
+                main_metric_score=main_metric_score,
+                other_metrics=other_metrics,
+                sampling_param=sampling_params,
+                extra_param=extra_params
+            )
+            entries.append(entry)
+    
+    sorted_entries = sorted(entries, key=lambda x: x.main_metric_score, reverse=True)
+    
+    limited_entries = sorted_entries[:limit]
+    
+    return schemas.Leaderboard(entries=limited_entries)
+
+

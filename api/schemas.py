@@ -425,3 +425,25 @@ class RetryRuns(EgBaseModel):
     experiment_ids: list[int]
     # List of results/metrics to retry
     result_ids: list[int]
+
+
+
+#
+# LeaderBoard
+#
+
+
+class LeaderboardEntry(EgBaseModel):
+    experiment_id: int
+    model_name: str
+    dataset_name: str
+    main_metric_score: float | None
+    other_metrics: dict[str, float | None]
+    sampling_param: dict[str, str | None]  
+    extra_param: dict[str, str | None]     
+
+
+class Leaderboard(EgBaseModel):
+    entries: list[LeaderboardEntry]
+
+
