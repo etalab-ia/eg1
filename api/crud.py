@@ -1,5 +1,6 @@
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func, desc, and_
+from sqlalchemy.exc import IntegrityError
 
 import api.models as models
 import api.schemas as schemas
@@ -386,6 +387,63 @@ def get_leaderboard(
         entries.append(entry)
 
     return schemas.Leaderboard(entries=entries)
+
+
+#
+# Products
+#
+
+
+def create_product(db: Session, product: schemas.ProductCreate) -> models.Product:
+    existing_product = db.query(models.Product).filter(models.Product.name == product.name).first()
+    if existing_product:
+        raise ValueError(f"Product with name '{product.name}' already exists")
+    db_product = models.Product(**product.dict())
+    db.add(db_product)
+    db.commit()
+    db.refresh(db_product)
+    return db_product
+
+def create_products(db: Session, products: list[schemas.ProductCreate]) -> list[models.Product]:
+    db_products = [models.Product(**product.dict()) for product in products]
+    db.add_all(db_products)
+    db.commit()
+    for db_product in db_products:
+        db.refresh(db_product)
+    return db_products
+
+def get_products(db: Session) -> list[models.Product]:
+    return db.query(models.Product).all()
+
+def get_product(db: Session, product_id: int) -> models.Product | None:
+    return db.query(models.Product).filter(models.Product.id == product_id).first()
+
+def create_product_dataset(db: Session, product_dataset: schemas.ProductDatasetCreate) -> models.ProductDataset:
+    db_product_dataset = models.ProductDataset(**product_dataset.dict())
+    try:
+        db.add(db_product_dataset)
+        db.commit()
+        db.refresh(db_product_dataset)
+        db.refresh(db_product_dataset, attribute_names=['dataset'])
+        return db_product_dataset
+    except IntegrityError:
+        db.rollback()
+        raise ValueError(f"ProductDataset with product_id {product_dataset.product_id} and dataset_id {product_dataset.dataset_id} already exists")
+
+def get_product_datasets(db: Session) -> list[models.ProductDataset]:
+    return db.query(models.ProductDataset).options(
+        joinedload(models.ProductDataset.dataset)
+    ).all()
+
+def update_product_dataset(db: Session, product_dataset_id: int, update_data: schemas.ProductDatasetUpdate) -> models.ProductDataset | None:
+    db_product_dataset = db.query(models.ProductDataset).filter(models.ProductDataset.id == product_dataset_id).first()
+    if db_product_dataset:
+        db_product_dataset.evaluation_metrics = update_data.evaluation_metrics
+        db.commit()
+        db.refresh(db_product_dataset)
+        # Charger explicitement le dataset associé
+        db.refresh(db_product_dataset, attribute_names=['dataset'])
+    return db_product_dataset
 
 
 #

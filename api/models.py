@@ -82,6 +82,9 @@ class Dataset(Base):
     readme = Column(Text)
     default_metric = Column(Text)
 
+    product_datasets = relationship("ProductDataset", back_populates="dataset")
+
+
 
 class Model(Base):
     __tablename__ = "models"
@@ -207,6 +210,34 @@ class ExperimentSet(Base):
 
     # Many
     experiments = relationship("Experiment", back_populates="experiment_set")
+
+
+#
+# PRODUCTS
+#
+
+
+class Product(Base):
+    __tablename__ = "products"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, index=True, unique=True)
+
+    product_datasets = relationship("ProductDataset", back_populates="product")
+
+
+class ProductDataset(Base):
+    __tablename__ = "products_datasets"
+    __table_args__ = (UniqueConstraint('product_id', 'dataset_id', name='uq_product_dataset'),)
+
+    id = Column(Integer, primary_key=True, index=True)
+    product_id = Column(Integer, ForeignKey("products.id"))
+    dataset_id = Column(Integer, ForeignKey("datasets.id"))
+    evaluation_metrics = Column(JSON)
+
+    product = relationship("Product", back_populates="product_datasets")
+    dataset = relationship("Dataset", back_populates="product_datasets")
+
 
 
 #

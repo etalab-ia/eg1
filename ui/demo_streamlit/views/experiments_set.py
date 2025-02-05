@@ -351,6 +351,7 @@ def display_experiment_set_score(experimentset, experiments_df):
     rows_support = []
     experiments = experimentset.get("experiments", [])
     _rename_model_variants(experiments)
+    size = experiments[0]["dataset"]["size"]
 
     for exp in experiments:
         row = {}
@@ -398,7 +399,7 @@ def display_experiment_set_score(experimentset, experiments_df):
     )
 
     st.write("---")
-    st.write("**Support:** the number of item on wich the metrics is computed")
+    st.write(f"**Support:** the number of item on wich the metrics is computed (size = {size})")
     st.dataframe(
         df_support,
         use_container_width=True,
