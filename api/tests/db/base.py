@@ -1,0 +1,2 @@
+# Import all the models, so that Base has them before being imported by Alembic
+from api.models import Base, Dataset, Model, Result, ObservationTable, Answer, Experiment, ExperimentSet, LocustRun  # noqa 
