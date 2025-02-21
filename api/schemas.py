@@ -92,14 +92,12 @@ class DatasetCreate(DatasetBase):
             raise SchemaError("'df' should be a readable dataframe. Use df.to_json()...")
 
         has_query = "query" in df.columns
-        has_output = "output" in df.columns
 
-        if not (has_query or has_output):
-            raise SchemaError("Your dataset needs at least a column 'query' or 'ouput'.")
+        if not has_query:
+            raise SchemaError("Your dataset needs a column 'query'.")
 
         return {
             "has_query": has_query,
-            "has_output": has_output,
             "size": len(df),
             "columns": list(df.columns),
             **obj,
@@ -110,7 +108,6 @@ class Dataset(DatasetBase):
     id: int
     created_at: datetime
     has_query: bool
-    has_output: bool
     size: int
     columns: list[str]
 
@@ -148,6 +145,7 @@ DatasetPatch = create_model(
 class ModelBase(EgBaseModel):
     name: str
     base_url: str
+    aliased_name: str | None = None
     prompt_system: str | None = None
     sampling_params: dict | None = None
     extra_params: dict | None = None
@@ -159,10 +157,27 @@ class ModelCreate(ModelBase):
 
 class Model(ModelBase):
     id: int
+    has_raw_output: bool = False
 
 
 class ModelWithKeys(Model):
     api_key: str
+
+
+class ModelRaw(EgBaseModel):
+    aliased_name: str
+    output: list[str]
+    # Ops metrics
+    execution_time: list[int] | None = None
+    nb_tokens_prompt: list[int] | None = None
+    nb_tokens_completion: list[int] | None = None
+    retrieval_context: list[list[str]] | None = None
+    # ModelBase (opt)
+    name: str = ""
+    base_url: str = ""
+    prompt_system: str | None = None
+    sampling_params: dict | None = None
+    extra_params: dict | None = None
 
 
 #
@@ -235,7 +250,7 @@ class ExperimentBase(EgBaseModel):
 class ExperimentCreate(ExperimentBase):
     metrics: list[MetricEnum]
     dataset: DatasetCreate | str
-    model: ModelCreate | None = None
+    model: ModelCreate | ModelRaw
 
     def to_table_init(self, db: Session) -> dict:
         obj = self.recurse_table_init(db)
@@ -248,10 +263,36 @@ class ExperimentCreate(ExperimentBase):
         else:
             dataset = models.Dataset(**obj["dataset"])
         obj["dataset"] = dataset
-        if dataset.has_output:
-            df = pd.read_json(StringIO(dataset.df))
+        if isinstance(self.model, ModelRaw):
+            df = pd.read_json(StringIO(self.model.df))
             obj["num_try"] = dataset.size
             obj["num_success"] = int(df["output"].count())
+
+        # Handle Model
+        if isinstance(self.model, ModelRaw):
+            model = {
+                k: v for k, v in self.model.model_dump().items() if k in ModelCreate.model_fields
+            }
+            model["has_raw_output"] = True
+            # Create Answers from ModelRaw
+            # --
+            answers = []
+            m = self.model
+            for i in range(len(m.output)):
+                answers.append(
+                    dict(
+                        num_line=i,
+                        answer = m.output[i],
+                        execution_time=m.execution_time[i] if m.execution_time else None,
+                        nb_tokens_prompt=m.nb_tokens_prompt[i] if m.nb_tokens_prompt else None,
+                        nb_tokens_completion=m.nb_tokens_completion[i] if m.nb_tokens_completion else None,
+                        retrieval_context=m.retrieval_context[i] if m.retrieval_context else None,
+                    )
+                )  # fmt: skip
+            obj["answers"] = answers
+        else:
+            model = self.model
+        obj["model"] = model
 
         # Handle Results
         results = []
@@ -261,26 +302,17 @@ class ExperimentCreate(ExperimentBase):
 
         # Validate Model and metric compatibility
         # --
-        mr = metric_registry
-        needs_output = any("output" in mr.get_metric(m).require for m in self.metrics)
-        if needs_output and not self.model and not dataset.has_output:
-            raise SchemaError(
-                "You need to provide an answer for this metric. "
-                "Either set a model to generate it or provide a dataset with the 'output' field."
-            )
-        if needs_output and not dataset.has_output and not dataset.has_query:
+        needs_output = any("output" in metric_registry.get_metric(m).require for m in self.metrics)
+        if needs_output and not model.has_raw_output and not dataset.has_query:
             raise SchemaError(
                 "You need to provide an answer for this metric. "
                 "Either provide a dataset with the 'query' field to generate the answer or with an 'output' field if have generated it yourself."
             )
-        if dataset.has_output and self.model:
-            raise SchemaError(
-                "You can't give at the same time a model and a dataset with an answer ('output' column). "
-                "Gives either one or the other."
-            )
         # Schema validation on all require fields
         require_fields = {
-            require for metric in self.metrics for require in mr.get_metric(metric).require
+            require
+            for metric in self.metrics
+            for require in metric_registry.get_metric(metric).require
         }
         for require in require_fields:
             if require in ["output"]:

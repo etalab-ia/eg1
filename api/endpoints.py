@@ -17,7 +17,7 @@ router = APIRouter()
 
 
 def _needs_output(db_exp):
-    return not db_exp.dataset.has_output and any(
+    return not db_exp.model.has_raw_output and any(
         "output" in metric_registry.get_metric(r.metric_name).require for r in db_exp.results
     )
 
@@ -318,11 +318,14 @@ def delete_experimentset(id: int, db: Session = Depends(get_db), admin_check=Dep
     description="Re-run failed runs.",
     tags=["experiment_set"],
 )
-def retry_runs(id: int, force: bool = Query(
+def retry_runs(
+    id: int,
+    force: bool = Query(
         default=False,
-        description="Force retry of all unfinished runs, by resetting their status to pending."
-    )
-               , db: Session = Depends(get_db)):
+        description="Force retry of all unfinished runs, by resetting their status to pending.",
+    ),
+    db: Session = Depends(get_db),
+):
     experimentset = crud.get_experimentset(db, id)
     if experimentset is None:
         raise HTTPException(status_code=404, detail="ExperimentSet not found")
