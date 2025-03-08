@@ -49,6 +49,13 @@ ROUTES = [
         "description": "A list of available metrics",
         "icon": ":material/visibility:",
     },
+    {
+        "id": "ops",
+        "path": "views/ops.py",
+        "title": "Ops",
+        "description": "Ops analysis",
+        "icon": ":material/settings:",
+    },
 ]
 
 
