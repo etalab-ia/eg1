@@ -146,6 +146,7 @@ class Answer(Base):
     nb_tokens_prompt = Column(Integer)
     nb_tokens_completion = Column(Integer)
     retrieval_context = Column(JSON)  # list[str]
+    tool_steps = Column(JSON) # list[list[dict]]
 
     # One
     experiment_id = Column(Integer, ForeignKey("experiments.id"))

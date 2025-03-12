@@ -19,10 +19,12 @@ dependencies = [
     "pandas==2.2.3",
     "pyzmq==26.2.0",
     "jinja2==3.1.4",
-    "pydantic==2.9.2",
+    "pydantic==2.10.1",
     "inflection==0.5.1",
-    "deepeval==2.4.9",
-    "ragas==0.2.13",
+    "deepeval==2.5.2",
+    "ragas==0.2.14",
+    # MCP
+    "mcp==1.2.1",
     # Front
     "streamlit==1.40.1",
     "plotly==5.22.0"

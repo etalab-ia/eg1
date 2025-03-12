@@ -8,9 +8,10 @@ from sqlalchemy import update
 
 import api.crud as crud
 import api.models as models
-from api.clients import LlmClient
 from api.config import DEFAULT_JUDGE_MODEL
 from api.db import SessionLocal
+from api.logger import logger
+from api.mcp import MCPBridgeClient, multi_step_generate
 from api.metrics import metric_registry
 from api.runners import MessageType, dispatch_tasks
 from api.utils import Timer, run_with_timeout
@@ -28,7 +29,7 @@ class MessageAnswer:
     )  # launch the observation dispacher once anwsers have been generated.
 
 
-def generate_answer(message: dict):
+def generate_answer(message: dict, mcp_bridge: MCPBridgeClient):
     """Message is a MessageAnswer dict containing the necessary information to process data"""
     msg = MessageAnswer(**message)
     with SessionLocal() as db:
@@ -38,6 +39,13 @@ def generate_answer(message: dict):
         sampling_params = model.sampling_params or {}
         extra_params = model.extra_params or {}
         sampling_params_plus = sampling_params | extra_params
+
+        # Build tools input
+        _tools = sampling_params_plus.pop("_tools_", None)
+        if _tools:
+            tools = mcp_bridge.tools2openai(_tools)
+            sampling_params_plus["tools"] = tools
+
         answer = None
         error_msg = None
         try:
@@ -46,14 +54,15 @@ def generate_answer(message: dict):
             messages = [{"role": "user", "content": msg.query}]
             if model.prompt_system:
                 messages = [{"role": "system", "content": model.prompt_system}] + messages
-            aiclient = LlmClient(base_url=model.base_url, api_key=model.api_key)
             with Timer() as timer:
-                result = aiclient.generate(
-                    model=model.name, messages=messages, **sampling_params_plus
+                result, steps = multi_step_generate(
+                    model, messages, sampling_params_plus, mcp_bridge
                 )
-            answer = result.choices[0].message.content
-            retrieval_context = None
 
+            answer = result.choices[0].message.content
+            steps = steps or None
+            retrieval_context = None
+            # MFS AD-HOC solution to get the retriever context
             if hasattr(result, "search_results"):
                 retrieval_context = [x.chunk.content for x in result.search_results]
 
@@ -68,6 +77,7 @@ def generate_answer(message: dict):
                     nb_tokens_prompt=result.usage.prompt_tokens,
                     nb_tokens_completion=result.usage.completion_tokens,
                     retrieval_context=retrieval_context,
+                    tool_steps=steps,
                 ),
             )
 
@@ -111,7 +121,7 @@ class MessageObservation:
     output_true: str | None = None  # The ground truth output
 
 
-def generate_observation(message: dict):
+def generate_observation(message: dict, mcp_bridge: MCPBridgeClient):
     """Message is a MessageObservation dict containing the necessary information to process data"""
     msg = MessageObservation(**message)
     with SessionLocal() as db:
@@ -222,7 +232,7 @@ def generate_observation(message: dict):
                 print("$", end="", flush=True)
 
 
-def process_task(message: dict):
+def process_task(message: dict, mcp_bridge: MCPBridgeClient):
     """Route and process message"""
     match message["message_type"]:
         case MessageType.answer:
@@ -232,4 +242,4 @@ def process_task(message: dict):
         case _:
             raise NotImplementedError("Message type Unknown")
 
-    return task(message)
+    return task(message, mcp_bridge)

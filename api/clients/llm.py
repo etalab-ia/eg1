@@ -5,12 +5,11 @@ from typing import Generator
 
 import requests
 
-from api.utils import log_and_raise_for_status, retry
-
-from .schemas.openai_rag import RagChatCompletionResponse, Search, Chunk
-
 # @TODO: Will be obsolete when MFS will use albert-api to do RAG
 from api.config import MFS_API_KEY_V2
+from api.utils import log_and_raise_for_status, retry
+
+from .schemas.openai_rag import Chunk, RagChatCompletionResponse, Search
 
 
 @dataclass
@@ -124,7 +123,7 @@ class LlmClient:
             def doc_to_chunk(doc: dict) -> str:
                 context = ""
                 if "context" in doc:
-                    context = "  (" " > ".join(doc["context"]) + ")"
+                    context = "  ( > ".join(doc["context"]) + ")"
 
                 text = "\n".join([doc["title"] + context, doc["introduction"], doc["text"]])
                 return text
