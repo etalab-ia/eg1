@@ -29,6 +29,10 @@ def get_dataset(db: Session, dataset_id: int) -> models.Dataset | None:
     return db.query(models.Dataset).filter(models.Dataset.id == dataset_id).first()
 
 
+def get_dataset_by_name(db: Session, dataset_name: str) -> models.Dataset | None:
+    return db.query(models.Dataset).filter(models.Dataset.name == dataset_name).first()
+
+
 def get_model(db: Session, model_id: int) -> models.Model | None:
     return db.query(models.Model).filter(models.Model.id == model_id).first()
 

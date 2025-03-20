@@ -197,6 +197,7 @@ class Answer(EgBaseModel):
     num_line: int
     error_msg: str | None
     execution_time: int | None
+    tool_steps: list | None
 
 
 class Observation(EgBaseModel):

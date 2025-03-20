@@ -41,6 +41,9 @@ API_PREFIX = ""
 MAX_CONCURRENT_TASKS = 8  # 8 ok, 16 hard !
 DEFAULT_JUDGE_MODEL = "gpt-4o-mini"
 
+# MCP
+MCP_CONFIG_FILE = "mcp.json"
+
 # Soon obsolete
 MFS_API_KEY_V2 = os.getenv("MFS_API_KEY_V2")
 

@@ -60,6 +60,32 @@ def read_dataset(id: int, with_df: bool = False, db: Session = Depends(get_db)):
     return schemas.Dataset.from_orm(dataset)
 
 
+@router.get("/dataset", response_model=schemas.Dataset | schemas.DatasetFull, tags=["datasets"])
+def read_dataset_by_query(
+    id: str | None = None,
+    name: str | None = None,
+    with_df: bool = False,
+    db: Session = Depends(get_db),
+):
+    dataset = None
+    if name:
+        dataset = crud.get_dataset_by_name(db, name)
+        if dataset is None:
+            raise HTTPException(status_code=404, detail="Dataset with given name not found")
+    if id:
+        dataset = crud.get_dataset(db, id)
+        if dataset is None:
+            raise HTTPException(status_code=404, detail="Dataset not found")
+
+    if dataset:
+        if with_df:
+            return schemas.DatasetFull.from_orm(dataset)
+
+        return schemas.Dataset.from_orm(dataset)
+
+    raise HTTPException(status_code=400, detail="No query parameters provided")
+
+
 @router.patch("/dataset/{id}", response_model=schemas.Dataset, tags=["datasets"])
 def patch_dataset(id: int, dataset_patch: schemas.DatasetPatch, db: Session = Depends(get_db)):
     db_dataset = crud.update_dataset(db, id, dataset_patch)

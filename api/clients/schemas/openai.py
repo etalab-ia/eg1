@@ -44,7 +44,7 @@ class PoolingParams:
         )
 
     def __repr__(self) -> str:
-        return f"PoolingParams(" f"additional_metadata={self.additional_data})"
+        return f"PoolingParams(additional_metadata={self.additional_data})"
 
 
 #
@@ -296,8 +296,7 @@ class ChatCompletionRequest(OpenAIBaseModel):
     guided_whitespace_pattern: Optional[str] = Field(
         default=None,
         description=(
-            "If specified, will override the default whitespace pattern "
-            "for guided json decoding."
+            "If specified, will override the default whitespace pattern for guided json decoding."
         ),
     )
 
@@ -489,8 +488,7 @@ class CompletionRequest(OpenAIBaseModel):
     guided_whitespace_pattern: Optional[str] = Field(
         default=None,
         description=(
-            "If specified, will override the default whitespace pattern "
-            "for guided json decoding."
+            "If specified, will override the default whitespace pattern for guided json decoding."
         ),
     )
 
@@ -683,7 +681,7 @@ class ToolCall(OpenAIBaseModel):
 
 class ChatMessage(OpenAIBaseModel):
     role: str
-    content: str
+    content: str | None
     tool_calls: List[ToolCall] = Field(default_factory=list)
 
 
