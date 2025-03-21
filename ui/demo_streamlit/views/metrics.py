@@ -49,19 +49,31 @@ def main():
     # Navigation menu
     with right_menu:
         st.markdown("###### Quick Navigation")
-        for metric_type in grouped_metrics.keys():
-            metric_id = metric_type.lower()
+        for metric_type, metrics_group in grouped_metrics.items():
+            metric_type_id = metric_type.lower()
 
             # Create a button for each metric type
             st.markdown(
                 f"""
-                <a href="#{metric_type}" style="color:grey;"
-                   onclick="document.getElementById('{metric_id}').scrollIntoView({{behavior: 'smooth'}});">
-                    {metric_type} metrics
+                <a href="#{metric_type_id}" style="color:grey; font-weight:bold;"
+                   onclick="document.getElementById('{metric_type_id}').scrollIntoView({{behavior: 'smooth'}});">
+                    {metric_type.capitalize()} metrics
                 </a><br>
             """,
                 unsafe_allow_html=True,
             )
-
+            
+            # Add clickable links for each metric under its type
+            for metric in metrics_group:
+                metric_id = metric['name'].lower().replace(' ', '-')
+                st.markdown(
+                    f"""
+                    <a href="#{metric_id}" style="color:grey; margin-left:15px;"
+                       onclick="document.getElementById('{metric_id}').scrollIntoView({{behavior: 'smooth'}});">
+                        {metric['name']}
+                    </a><br>
+                """,
+                    unsafe_allow_html=True,
+                )
 
 main()

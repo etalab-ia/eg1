@@ -487,18 +487,40 @@ class RetryRuns(EgBaseModel):
 #
 
 
-class LeaderboardEntry(EgBaseModel):
+class LeaderboardEntry(BaseModel):
     experiment_id: int
+    experiment_name: str
     model_name: str
     dataset_name: str
-    main_metric_score: float | None
-    other_metrics: dict[str, float | None]
-    sampling_param: dict[str, str | None]
-    extra_param: dict[str, str | None]
+    main_metric_score: Optional[float]
+    other_metrics: dict
+    sampling_param: dict
+    extra_param: dict
+    created_at: datetime
+    experiment_set_id: Optional[int] = None
+    experiment_set_name: Optional[str] = None
+
 
 
 class Leaderboard(EgBaseModel):
     entries: list[LeaderboardEntry]
+
+
+#
+# Ops
+#
+
+class ModelInfo(BaseModel):
+    name: str
+    aliased_name: Optional[str]
+
+class OpsMetrics(BaseModel):
+    experiment_sets: int
+    unique_experiments: int
+    unique_answers: int
+    unique_metrics: int
+    unique_observations: int
+    distinct_models: list[ModelInfo]
 
 
 #

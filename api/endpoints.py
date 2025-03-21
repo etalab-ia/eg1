@@ -444,6 +444,16 @@ def read_leaderboard(
 
 
 #
+# Ops
+#
+
+
+@router.get("/ops_metrics", response_model=schemas.OpsMetrics, tags=["ops"])
+def read_ops_metrics(db: Session = Depends(get_db)):
+    return crud.get_ops_metrics(db)
+
+
+#
 # LOCUST
 #
 
