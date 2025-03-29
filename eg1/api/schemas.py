@@ -250,7 +250,7 @@ class ExperimentBase(EgBaseModel):
     name: str
     readme: str | None = None
     experiment_set_id: int | None = None
-    judge_model: Literal[*LlmApiModels.openai] | None = None
+    judge_model: Literal[*LlmApiModels._all_models()] | None = None
 
 
 class ExperimentCreate(ExperimentBase):

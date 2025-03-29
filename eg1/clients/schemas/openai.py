@@ -682,7 +682,7 @@ class ToolCall(OpenAIBaseModel):
 class ChatMessage(OpenAIBaseModel):
     role: str
     content: str | None
-    tool_calls: List[ToolCall] = Field(default_factory=list)
+    tool_calls: List[ToolCall] | None = None
 
 
 class ChatCompletionLogProb(OpenAIBaseModel):
@@ -719,7 +719,7 @@ class ChatCompletionResponse(OpenAIBaseModel):
 class DeltaMessage(OpenAIBaseModel):
     role: Optional[str] = None
     content: Optional[str] = None
-    tool_calls: List[ToolCall] = Field(default_factory=list)
+    tool_calls: List[ToolCall] | None = None
 
 
 class ChatCompletionResponseStreamChoice(OpenAIBaseModel):

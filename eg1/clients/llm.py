@@ -8,6 +8,7 @@ import requests
 # @TODO: Will be obsolete when MFS will use albert-api to do RAG
 from eg1.api.config import MFS_API_KEY_V2
 from eg1.utils import log_and_raise_for_status, retry
+from eg1.logger import logger
 
 from .schemas.openai_rag import Chunk, RagChatCompletionResponse, Search
 
@@ -17,16 +18,32 @@ class LlmApiUrl:
     openai: str = "https://api.openai.com/v1"
     anthropic: str = "https://api.anthropic.com/v1"
     mistral: str = "https://api.mistral.ai/v1"
+    albert: str = "https://albert.api.etalab.gouv.fr/v1"
     header_keys: dict = field(
         default_factory=lambda: {
             "openai": {
                 "Authorization": "Bearer {OPENAI_API_KEY}",
                 "OpenAI-Organization": "{OPENAI_ORG_KEY}",
             },
-            "anthropic": ["ANTHROPIC_API_KEY"],
-            "mistral": ["MISTRAL_API_KEY"],
+            "anthropic": {
+                "x-api-key": "{ANTHROPIC_API_KEY}",
+                "anthropic-version": "2023-06-01",
+            },
+            "mistral": {"Authorization": "Bearer {MISTRAL_API_KEY}"},
+            "albert": {"Authorization": "Bearer {ALBERT_API_KEY}"},
         }
     )
+
+    def build_header(self, provider, h_pattern=r"\{(.*?)\}"):
+        headers = {}
+        for h, t in LlmApiUrl.header_keys[provider].items():
+            # Format the headers from the environ
+            match = re.search(h_pattern, t)
+            if not match or not os.getenv(match.group(1)):
+                headers[h] = t
+            else:
+                headers[h] = t.format(**{match.group(1): os.getenv(match.group(1))})
+        return headers
 
 
 LlmApiUrl = LlmApiUrl()  # headers_keys does not exist otherwise...
@@ -34,39 +51,48 @@ LlmApiUrl = LlmApiUrl()  # headers_keys does not exist otherwise...
 
 @dataclass
 class LlmApiModels:
-    openai: set[str] = (
-        "o1",
-        "gpt-4o",
-        "gpt-4o-mini",
-        "text-embedding-ada-002",
-        "text-embedding-3-small",
-        "text-embedding-3-large",
-    )
-    anthropic: set[str] = ("claude",)
-    mistral: set[str] = (
-        "mistral-large-latest",
-        "pixtral-large-latest",
-        "mistral-small-latest",
-        "ministral-8b-latest",
-        "ministral-3b-latest",
-        "mistral-embed",
-    )
+    openai: set[str] = field(default_factory=set)
+    anthropic: set[str] = field(default_factory=set)
+    mistral: set[str] = field(default_factory=set)
+    albert: set[str] = field(default_factory=set)
+
+    @classmethod
+    def _sync_openai_api_models(cls):
+        self = cls()
+
+        for provider, _ in self.__dict__.items():
+            if provider.startswith("_"):
+                continue
+
+            url = getattr(LlmApiUrl, provider)
+            headers = LlmApiUrl.build_header(provider)
+            response = requests.get(f"{url}/models", headers=headers)
+            try:
+                response.raise_for_status()
+            except requests.exceptions.RequestException as e:
+                logger.error(f"Model discovery error: {e}")
+                continue
+            models_data = response.json()
+            setattr(self, provider, {model["id"] for model in models_data["data"]})
+
+        return self
+
+    def _all_models(self):
+        provider_models = [
+            models for provider, models in self.__dict__.items() if not provider.startswith("_")
+        ]
+        return {model for models in provider_models for model in models}
+
+
+LlmApiModels = LlmApiModels._sync_openai_api_models()
 
 
 def get_api_url(model: str) -> (str | None, dict):
-    h_pattern = r"\{(.*?)\}"
     for provider, models in LlmApiModels.__dict__.items():
         if provider.startswith("__"):
             continue
         if model in models:
-            headers = {}
-            for h, t in LlmApiUrl.header_keys[provider].items():
-                # Format the headers from the environ
-                match = re.search(h_pattern, t)
-                if not match or not os.getenv(match.group(1)):
-                    continue
-                headers[h] = t.format(**{match.group(1): os.getenv(match.group(1))})
-
+            headers = LlmApiUrl.build_header(provider)
             return getattr(LlmApiUrl, provider), headers
     return None, {}
 
@@ -116,9 +142,7 @@ class LlmClient:
         json_data["stream"] = stream
 
         url, headers = self.get_url_and_headers(model)
-        response = requests.post(
-            url + path, headers=headers, json=json_data, stream=stream, timeout=300
-        )
+        response = requests.post(url + path, headers=headers, json=json_data, stream=stream, timeout=300)
         log_and_raise_for_status(response, "Albert API error")
 
         if stream:
@@ -144,9 +168,7 @@ class LlmClient:
                 return text
 
             for chunkid in refs:
-                response = requests.get(
-                    url.removesuffix("/v1") + f"/v2/get_chunk/{chunkid}", headers=headers
-                )
+                response = requests.get(url.removesuffix("/v1") + f"/v2/get_chunk/{chunkid}", headers=headers)
                 log_and_raise_for_status(response, "MFS fetch chunk")
                 chunk = response.json()
                 chunks.append(doc_to_chunk(chunk))
