@@ -501,6 +501,7 @@ class LeaderboardEntry(BaseModel):
     created_at: datetime
     experiment_set_id: Optional[int] = None
     experiment_set_name: Optional[str] = None
+    judge_model: Optional[str] = None
 
 
 class Leaderboard(EgBaseModel):

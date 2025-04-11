@@ -435,10 +435,13 @@ def retry_runs(
 def read_leaderboard(
     metric_name: str = "judge_notator",
     dataset_name: str = None,
+    judge_model: str = None,
     limit: int = 100,
     db: Session = Depends(get_db),
 ):
-    return crud.get_leaderboard(db, metric_name=metric_name, dataset_name=dataset_name, limit=limit)
+    return crud.get_leaderboard(
+        db, metric_name=metric_name, dataset_name=dataset_name, judge_model=judge_model, limit=limit
+    )
 
 
 #

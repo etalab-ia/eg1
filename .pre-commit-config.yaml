@@ -4,9 +4,10 @@ repos:
     rev: v0.6.5
     hooks:
       # Run the linter.
-      - id: ruff
-        types_or: [ python, pyi ]
-        args: [ --fix ]
+      #- id: ruff
+      #  types_or: [ python, pyi ]
+        #args: [ --fix, --config=pyproject.toml ]
       # Run the formatter.
       - id: ruff-format
         types_or: [ python, pyi ]
+        args: [ --config=pyproject.toml ]

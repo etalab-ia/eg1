@@ -44,13 +44,18 @@ def fetch_experiment_results(exp_id: int) -> dict:
 
 @st.cache_data(ttl=300)
 def fetch_leaderboard(
-    metric_name: str = DEFAULT_METRIC, dataset_name: str | None = None, limit: int = 10
+    metric_name: str = DEFAULT_METRIC,
+    dataset_name: str | None = None,
+    judge_model: str | None = None,
+    limit: int = 10,
 ) -> dict:
     """Fetches leaderboard data with caching."""
     endpoint = "/leaderboard"
     params = {"metric_name": metric_name}
     if dataset_name:
         params["dataset_name"] = dataset_name
+    if judge_model:
+        params["judge_model"] = judge_model
     return fetch("get", endpoint, params)
 
 
@@ -93,7 +98,7 @@ def display_model_production(model_info: dict, default_metric: str) -> None:
             st.info(f"No results found for experiment {exp_id}")
             return
 
-        metrics_data = {"Model": model_name}
+        metrics_data = {"Model": model_name, "Judge_model": results["judge_model"]}
         tokens, times = [], []
 
         for result in results["results"]:
@@ -123,7 +128,6 @@ def display_model_production(model_info: dict, default_metric: str) -> None:
 
             if tokens_per_second:
                 metrics_data["tokens_per_second"] = round(np.mean(tokens_per_second), 2)
-
         df = pd.DataFrame([metrics_data])
         st.dataframe(df)
 
@@ -478,7 +482,42 @@ def main() -> None:
             product_dataset_name = product_info.get("dataset", {}).get("name")
             metrics_list_for_decision = [metric for metric in product_info["metrics"]]
 
-            leaderboard_data = fetch_leaderboard(default_metric, product_dataset_name)
+            col1, col2 = st.columns([3, 1])
+            with col1:
+                st.write("#### Leaderboard")
+            with col2:
+                # Fetch leaderboard data
+                leaderboard_data = fetch_leaderboard(default_metric, product_dataset_name)
+
+                # Get available judges from the leaderboard data
+                available_judges = sorted(
+                    list(
+                        set(
+                            entry.get("judge_model")
+                            for entry in leaderboard_data.get("entries", [])
+                            if entry.get("judge_model")
+                        )
+                    )
+                )
+
+                judge_model = st.selectbox(
+                    "Filter by judge model",
+                    options=["All"] + available_judges,
+                    index=0,
+                    key=f"judge_filter_{product_info['name']}",
+                )
+
+            if judge_model != "All":
+                st.markdown(
+                    f"<span style='color: green; font-weight: bold; font-size: 1.1em'>"
+                    f"&#x2714; Active filter = {judge_model}"
+                    f"</span>",
+                    unsafe_allow_html=True,
+                )
+
+            if judge_model != "All":
+                leaderboard_data = fetch_leaderboard(default_metric, product_dataset_name, judge_model)
+
             df_leaderboard = process_leaderboard_data(
                 leaderboard_data, default_metric, metrics_list_for_decision, current_model_id
             )
@@ -492,7 +531,6 @@ def main() -> None:
                 )
                 df_leaderboard.drop(columns="experiment_set_id", inplace=True)
 
-                st.write("#### Leaderboard")
                 st.data_editor(
                     df_leaderboard,
                     use_container_width=True,

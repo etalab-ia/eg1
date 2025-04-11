@@ -339,6 +339,7 @@ def get_leaderboard(
     db: Session,
     metric_name: str = "judge_notator",
     dataset_name: str = None,
+    judge_model: str = None,
     limit: int = 100,
     offset: int = 0,
 ):
@@ -363,6 +364,7 @@ def get_leaderboard(
             models.Experiment.created_at.label("created_at"),
             models.Experiment.experiment_set_id,
             models.ExperimentSet.name.label("experiment_set_name"),
+            models.Experiment.judge_model.label("judge_model"),
         )
         .join(models.Model, models.Experiment.model_id == models.Model.id)
         .join(models.Dataset, models.Experiment.dataset_id == models.Dataset.id)
@@ -372,6 +374,9 @@ def get_leaderboard(
 
     if dataset_name:
         query = query.where(models.Dataset.name == dataset_name)
+
+    if judge_model:
+        query = query.where(models.Experiment.judge_model == judge_model)
 
     query = query.order_by(desc("main_metric_score")).limit(limit).offset(offset)
 
@@ -410,6 +415,7 @@ def get_leaderboard(
             created_at=result.created_at,
             experiment_set_id=result.experiment_set_id,
             experiment_set_name=result.experiment_set_name,
+            judge_model=result.judge_model,
         )
         entries.append(entry)
 

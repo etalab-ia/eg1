@@ -365,7 +365,12 @@ def _sort_score_df(*dfs, reset_index=False):
 
     df = dfs[0]
     sorting_metric = _find_default_sort_metric(df.columns)
-    df.sort_values(by=sorting_metric, key=lambda x: x.map(_extract_mean), ascending=False, inplace=True)
+    df.sort_values(
+        by=sorting_metric,
+        key=lambda x: x.map(_extract_mean),
+        ascending=False,
+        inplace=True,
+    )
     # Store the sorted index before resetting it
     sorted_idx = df.index.copy()
     for df in dfs:
@@ -378,10 +383,9 @@ def _sort_score_df(*dfs, reset_index=False):
 
 def _sort_columns(df: pd.DataFrame, first_columns: list) -> pd.DataFrame:
     first_columns = []
-    new_column_order = (
-        sorted(first_columns)  # Sort the first group of columns
-        + sorted([col for col in df.columns if col not in first_columns])  # Sort remaining columns
-    )
+    new_column_order = sorted(first_columns) + sorted(  # Sort the first group of columns
+        [col for col in df.columns if col not in first_columns]
+    )  # Sort remaining columns
     return df[new_column_order]
 
 
@@ -454,6 +458,19 @@ def display_experiment_set_score(experimentset, experiments_df):
     _rename_model_variants(experiments)
     size = experiments[0]["dataset"]["size"]
 
+    available_judges = sorted(
+        list(set(expe.get("judge_model") for expe in experiments if expe.get("judge_model")))
+    ) or ["No_judge_found"]
+
+    col1, col2 = st.columns([6, 2])
+    with col1:
+        st.write("**Score:** Averaged score on experiments metrics")
+    with col2:
+        st.write(f"**Judge model:** {available_judges[0] if available_judges else 'No judge found'}")
+
+    if len(available_judges) > 1:
+        st.warning(f"Multiple judge models found: {', '.join(available_judges)}")
+
     rows = []
     rows_support = []
     for expe in experiments:
@@ -499,7 +516,6 @@ def display_experiment_set_score(experimentset, experiments_df):
     df_support = _sort_columns(df_support, [])
     _, df_support = _format_experiments_score_df(experiments, df_support)
 
-    st.write("**Score:** Averaged score on experiments metrics")
     if has_repeat:
         st.warning("Score are aggregated on model repetition.")
 
@@ -764,7 +780,9 @@ def main():
         if expid.isdigit():
             experimentset = next((x for x in experiment_sets if x["id"] == int(expid)), None)
             experimentset = _fetch_experimentset(
-                expid, experimentset, refresh=st.session_state.get("refresh_experimentset")
+                expid,
+                experimentset,
+                refresh=st.session_state.get("refresh_experimentset"),
             )
         elif expid == "orphan":
             experimentset = {
