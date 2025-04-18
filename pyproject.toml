@@ -25,6 +25,7 @@ dependencies = [
     "docopt-ng==0.9.0",
     "deepeval==2.5.2",
     "ragas==0.2.14",
+    "ecologits==0.6.2",
     # Front
     "streamlit==1.40.1",
     "plotly==5.22.0"

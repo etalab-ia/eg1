@@ -9,6 +9,9 @@ from typing import Any
 from jinja2 import BaseLoader, Environment
 from requests import Response
 
+from ecologits.tracers.utils import compute_llm_impacts, electricity_mixes
+
+
 #
 # String utils
 #
@@ -97,7 +100,7 @@ def log_and_raise_for_status(response: Response, msg_on_error: str = "API Error 
 
 def import_classes(package_name: str, class_names: list[str], more: list[str] = None) -> list[dict]:
     """Get a list of class obj from given package name and class_names.
-       If `more` is given, it tries to extract the object with that names in the same module where a class is found.
+    If `more` is given, it tries to extract the object with that names in the same module where a class is found.
     """
     # Import the package
     package = importlib.import_module(package_name)
@@ -219,3 +222,29 @@ def build_param_grid(common_params: dict[str, Any], grid_params: dict[str, list[
         param_grid.append(params)
 
     return param_grid
+
+
+#
+# carbon emission in kgCO2e (use Ecologits for estimation)
+#
+
+
+def impact_carbon(zone, token_count, request_latency):
+    electricity_mix_zone = zone  # "FRA"#"WOR"
+    electricity_mix = electricity_mixes.find_electricity_mix(zone=electricity_mix_zone)
+    if_electricity_mix_adpe = electricity_mix.adpe
+    if_electricity_mix_pe = electricity_mix.pe
+    if_electricity_mix_gwp = electricity_mix.gwp
+
+    model_active_parameter_count = 100
+    model_total_parameter_count = 100
+
+    return compute_llm_impacts(
+        model_active_parameter_count=model_active_parameter_count,  # Nombre de paramètres activés pendant l'inférence. Pour les modèles denses, cette valeur est égale à model_total_parameter_count
+        model_total_parameter_count=model_total_parameter_count,  # Nombre total de paramètres du modèle
+        output_token_count=token_count,  # Nombre de tokens générés, disponible dans la réponse de l'API LLM
+        if_electricity_mix_adpe=if_electricity_mix_adpe,
+        if_electricity_mix_pe=if_electricity_mix_pe,
+        if_electricity_mix_gwp=if_electricity_mix_gwp,
+        request_latency=request_latency,  # temps de réponse
+    )

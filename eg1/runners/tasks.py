@@ -14,7 +14,7 @@ from eg1.api.metrics import metric_registry
 from eg1.clients import MCPBridgeClient, multi_step_generate, split_think_answer
 from eg1.logger import logger
 from eg1.runners import MessageType, dispatch_tasks
-from eg1.utils import Timer, run_with_timeout
+from eg1.utils import Timer, run_with_timeout, impact_carbon
 
 
 @dataclass
@@ -81,6 +81,14 @@ def generate_answer(message: dict, mcp_bridge: MCPBridgeClient | None):
             if answer:
                 think, answer = split_think_answer(answer)
 
+            # Carbon emission
+            try:
+                emission_carbon = impact_carbon("FRA", result.usage.completion_tokens, timer.execution_time)
+
+            except Exception as e:
+                logger.error(f"Error during calcul carbon impact : {e}")
+                emission_carbon = None
+
             # Upsert answer
             crud.upsert_answer(
                 db,
@@ -96,6 +104,7 @@ def generate_answer(message: dict, mcp_bridge: MCPBridgeClient | None):
                     retrieval_context=retrieval_context,
                     nb_tool_calls=sum(len(s) for s in steps) if steps else 0,
                     tool_steps=steps,
+                    emission_carbon=emission_carbon.model_dump(),
                 ),
             )
 

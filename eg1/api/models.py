@@ -143,6 +143,7 @@ class Answer(Base):
     context = Column(JSON)  # list[str]
     retrieval_context = Column(JSON)  # list[str]
     tool_steps = Column(JSON)  # list[list[dict]]
+    emission_carbon = Column(JSON)  # dict[ecologits]
 
     # One
     experiment_id = Column(Integer, ForeignKey("experiments.id"))

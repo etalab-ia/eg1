@@ -192,6 +192,7 @@ class Answer(EgBaseModel):
     error_msg: str | None
     execution_time: int | None
     tool_steps: list | None
+    emission_carbon: dict | None
 
 
 class Observation(EgBaseModel):
